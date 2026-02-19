@@ -1,10 +1,10 @@
 (function () {
     'use strict';
 
-    var PLUGIN_ID = 'a3b9c2d1-e4f5-6789-abcd-ef0123456789';
     var PANEL_CLASS = 'musicDiscoveryPanel';
-    var _injectTimers = [];
     var _generation = 0;
+    var _injecting = false;
+    var _debounceTimer = null;
 
     // Load CSS
     var cssLink = document.querySelector('link[href*="MusicDiscoveryCSS"]');
@@ -15,49 +15,54 @@
         document.head.appendChild(cssLink);
     }
 
-    function scheduleInject() {
-        _injectTimers.forEach(function (t) { clearTimeout(t); });
-        _injectTimers = [];
-        _generation++;
+    // --- Primary driver: MutationObserver ---
+    // Watches for any DOM change, then checks if we're on a music detail
+    // page that needs our panel. This replaces viewshow/hashchange listeners
+    // and staggered timeouts — we react to the DOM being ready rather than
+    // guessing when it will be.
 
-        // Stagger multiple attempts so at least one lands after Jellyfin's
-        // page transition finishes rebuilding .detailPageContent.
-        // Each attempt is idempotent — once the panel exists for the
-        // current item, later attempts are no-ops.
-        var gen = _generation;
-        var delays = [300, 700, 1200, 2000];
-        delays.forEach(function (delay) {
-            _injectTimers.push(setTimeout(function () {
-                if (gen !== _generation) return;
-                tryInjectPanel(gen);
-            }, delay));
-        });
-    }
+    var observer = new MutationObserver(function () {
+        if (_injecting) return;
+        if (_debounceTimer) clearTimeout(_debounceTimer);
+        _debounceTimer = setTimeout(checkPage, 200);
+    });
 
-    document.addEventListener('viewshow', scheduleInject);
-    window.addEventListener('hashchange', scheduleInject);
+    observer.observe(document.body, { childList: true, subtree: true });
 
-    function tryInjectPanel(gen) {
-        var params = new URLSearchParams(
-            window.location.hash.indexOf('?') > -1
-                ? window.location.hash.split('?')[1]
-                : window.location.search
-        );
+    // Also run once immediately in case the page is already rendered
+    // (handles F5 where viewshow fired before our script loaded)
+    setTimeout(checkPage, 0);
+
+    function checkPage() {
+        // 1. Are we on a detail page?
+        var detailPage = document.querySelector('.itemDetailPage:not(.hide)');
+        if (!detailPage) return;
+
+        // 2. Extract item ID from URL hash
+        var hash = window.location.hash;
+        var qIndex = hash.indexOf('?');
+        if (qIndex === -1) return;
+        var params = new URLSearchParams(hash.substring(qIndex + 1));
         var itemId = params.get('id');
         if (!itemId) return;
 
-        // Check if panel already exists for this item
+        // 3. Panel already exists for this item — nothing to do
         var existing = document.querySelector('.' + PANEL_CLASS);
         if (existing && existing.dataset.itemId === itemId) return;
 
-        // Make sure the detail container is present and has content
-        // (Jellyfin may still be mid-transition rebuilding it)
-        var detailContent = document.querySelector('.detailPageContent');
-        if (!detailContent || detailContent.children.length === 0) return;
+        // 4. Has Jellyfin populated the page content yet?
+        //    The template is in the DOM immediately, but item-specific data
+        //    (like .itemName text) only appears after the async API call.
+        var nameEl = detailPage.querySelector('.itemName');
+        if (!nameEl || !nameEl.textContent.trim()) return;
 
+        // All conditions met — inject
+        _generation++;
+        var gen = _generation;
+
+        // Remove stale panel from a previous item
         if (existing) existing.remove();
 
-        // Fetch item info to determine type
         ApiClient.getItem(ApiClient.getCurrentUserId(), itemId).then(function (item) {
             if (gen !== _generation) return;
             if (item.Type === 'MusicArtist' || item.Type === 'MusicAlbum' || item.Type === 'Audio') {
@@ -68,6 +73,8 @@
 
     function fetchAndRenderPanel(item, gen) {
         var url = ApiClient.getUrl('MusicDiscovery/Similar/' + item.Id);
+
+        _injecting = true;
 
         // Show loading state
         var loadingPanel = document.createElement('div');
@@ -84,21 +91,29 @@
             || document.querySelector('.page');
         if (detailContent) detailContent.appendChild(loadingPanel);
 
+        _injecting = false;
+
         ApiClient.getJSON(url)
         .then(function (data) {
             if (gen !== _generation) return;
 
-            // Remove loading panel
+            _injecting = true;
+
             var existing = document.querySelector('.' + PANEL_CLASS);
             if (existing) existing.remove();
 
-            if (!data || !data.Recommendations || data.Recommendations.length === 0) return;
-            renderPanel(item, data);
+            if (data && data.Recommendations && data.Recommendations.length > 0) {
+                renderPanel(item, data);
+            }
+
+            _injecting = false;
         })
         .catch(function (err) {
             console.error('Music Discovery: Error fetching recommendations', err);
+            _injecting = true;
             var existing = document.querySelector('.' + PANEL_CLASS);
             if (existing) existing.remove();
+            _injecting = false;
         });
     }
 
@@ -125,7 +140,6 @@
 
         panel.appendChild(grid);
 
-        // Find the right place to insert
         var detailContent = document.querySelector('.detailPageContent')
             || document.querySelector('.page');
         if (detailContent) {
