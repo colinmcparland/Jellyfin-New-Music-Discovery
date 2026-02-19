@@ -152,13 +152,13 @@
         panel.appendChild(headerContainer);
 
         // Horizontal scroller — use native emby-scroller for matching scroll behavior
-        var scroller = document.createElement('div', { is: 'emby-scroller' });
+        var scroller = document.createElement('div', 'emby-scroller');
         scroller.setAttribute('is', 'emby-scroller');
         scroller.className = 'padded-top-focusscale padded-bottom-focusscale no-padding emby-scroller';
         scroller.setAttribute('data-centerfocus', 'true');
         scroller.setAttribute('data-scroll-mode-x', 'custom');
 
-        var slider = document.createElement('div', { is: 'emby-itemscontainer' });
+        var slider = document.createElement('div', 'emby-itemscontainer');
         slider.setAttribute('is', 'emby-itemscontainer');
         slider.className = 'scrollSlider focuscontainer-x itemsContainer animatedScrollX';
         slider.style.whiteSpace = 'nowrap';
