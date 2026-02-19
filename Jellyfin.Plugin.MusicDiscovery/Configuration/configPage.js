@@ -5,7 +5,7 @@ export default function (view) {
         Dashboard.showLoadingMsg();
         ApiClient.getPluginConfiguration(pluginId).then(function (config) {
             view.querySelector('#txtLastFmApiKey').value = config.LastFmApiKey || '';
-            view.querySelector('#selMaxResults').value = config.MaxRecommendations || 8;
+            view.querySelector('#selMaxResults').value = config.MaxRecommendations || 12;
             view.querySelector('#txtCacheDuration').value = config.CacheDurationMinutes || 30;
             view.querySelector('#chkEnableArtists').checked = config.EnableForArtists;
             view.querySelector('#chkEnableAlbums').checked = config.EnableForAlbums;

@@ -112,7 +112,9 @@ public class MusicDiscoveryController : ControllerBase
         string artistName, string albumName, int limit, CancellationToken ct)
     {
         // Strategy: get similar artists, then their top albums
-        var similarArtists = await _lastFmClient.GetSimilarArtistsAsync(artistName, 5, ct);
+        // Fetch enough similar artists so that (artists × 2 albums) >= limit
+        var artistCount = (limit + 3) / 2;
+        var similarArtists = await _lastFmClient.GetSimilarArtistsAsync(artistName, artistCount, ct);
         var recommendations = new List<RecommendationDto>();
 
         var albumTasks = similarArtists.Select(async artist =>

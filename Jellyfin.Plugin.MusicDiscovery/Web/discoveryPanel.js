@@ -101,34 +101,34 @@
         _injecting = false;
 
         ApiClient.getJSON(url)
-        .then(function (data) {
-            if (gen !== _generation) return;
+            .then(function (data) {
+                if (gen !== _generation) return;
 
-            _injecting = true;
+                _injecting = true;
 
-            // Clean up within this slot only
-            var existing = detailPage.querySelector('.' + PANEL_CLASS);
-            if (existing) existing.remove();
+                // Clean up within this slot only
+                var existing = detailPage.querySelector('.' + PANEL_CLASS);
+                if (existing) existing.remove();
 
-            if (data && data.Recommendations && data.Recommendations.length > 0) {
-                renderPanel(item, data, detailPage);
-            }
+                if (data && data.Recommendations && data.Recommendations.length > 0) {
+                    renderPanel(item, data, detailPage);
+                }
 
-            _injecting = false;
-        })
-        .catch(function (err) {
-            console.error('Music Discovery: Error fetching recommendations', err);
-            _injecting = true;
-            var existing = detailPage.querySelector('.' + PANEL_CLASS);
-            if (existing) existing.remove();
-            _injecting = false;
-        });
+                _injecting = false;
+            })
+            .catch(function (err) {
+                console.error('Music Discovery: Error fetching recommendations', err);
+                _injecting = true;
+                var existing = detailPage.querySelector('.' + PANEL_CLASS);
+                if (existing) existing.remove();
+                _injecting = false;
+            });
     }
 
     function renderPanel(item, data, detailPage) {
         var typeLabel = data.SourceType === 'artist' ? 'Artists'
             : data.SourceType === 'album' ? 'Albums'
-            : 'Tracks';
+                : 'Tracks';
 
         var panel = document.createElement('div');
         panel.className = PANEL_CLASS + ' verticalSection';
@@ -136,20 +136,22 @@
 
         // Section header — matches native sectionTitleContainer
         var headerContainer = document.createElement('div');
-        headerContainer.className = 'sectionTitleContainer sectionTitleContainer-cards padded-left';
         var header = document.createElement('h2');
         header.className = 'sectionTitle sectionTitle-cards';
         header.textContent = 'Similar ' + typeLabel;
         headerContainer.appendChild(header);
         panel.appendChild(headerContainer);
 
-        // Horizontal scroller wrapper
-        var scroller = document.createElement('div');
-        scroller.className = 'padded-top-focusscale padded-bottom-focusscale';
-        scroller.setAttribute('data-horizontal', 'true');
+        // Horizontal scroller — use native emby-scroller for matching scroll behavior
+        var scroller = document.createElement('div', { is: 'emby-scroller' });
+        scroller.setAttribute('is', 'emby-scroller');
+        scroller.className = 'padded-top-focusscale padded-bottom-focusscale no-padding emby-scroller';
+        scroller.setAttribute('data-centerfocus', 'true');
+        scroller.setAttribute('data-scroll-mode-x', 'custom');
 
-        var slider = document.createElement('div');
-        slider.className = 'itemsContainer scrollSlider focuscontainer-x';
+        var slider = document.createElement('div', { is: 'emby-itemscontainer' });
+        slider.setAttribute('is', 'emby-itemscontainer');
+        slider.className = 'scrollSlider focuscontainer-x itemsContainer animatedScrollX';
         slider.style.whiteSpace = 'nowrap';
 
         data.Recommendations.forEach(function (rec) {
@@ -164,36 +166,35 @@
     }
 
     function createCard(rec) {
-        // Outer card wrapper
+        // Outer card wrapper — matches native 'More Like This' structure
         var card = document.createElement('div');
-        card.className = 'card squareCard scalableCard squareCard-scalable';
-        card.style.display = 'inline-block';
+        card.className = 'card overflowSquareCard card-hoverable';
 
         var cardBox = document.createElement('div');
-        cardBox.className = 'cardBox';
+        cardBox.className = 'cardBox cardBox-bottompadded';
 
         var cardScalable = document.createElement('div');
         cardScalable.className = 'cardScalable';
 
-        // Aspect ratio padder (1:1 square)
+        // Aspect ratio padder (1:1 square, overflow size)
         var padder = document.createElement('div');
-        padder.className = 'cardPadder cardPadder-square';
+        padder.className = 'cardPadder cardPadder-overflowSquare';
 
-        // Image container
-        var imgContainer = document.createElement('div');
-        imgContainer.className = 'cardImageContainer coveredImage cardContent';
-
-        if (rec.ImageUrl) {
-            imgContainer.style.backgroundImage = 'url("' + rec.ImageUrl + '")';
-            imgContainer.style.backgroundSize = 'cover';
-            imgContainer.style.backgroundPosition = 'center';
-        } else {
-            // Fallback icon
+        if (!rec.ImageUrl) {
+            // Fallback icon inside padder (matches native pattern)
             var icon = document.createElement('span');
             icon.className = 'material-icons cardImageIcon';
             icon.textContent = rec.Type === 'artist' ? 'person' : 'album';
             icon.setAttribute('aria-hidden', 'true');
             padder.appendChild(icon);
+        }
+
+        // Image container — coveredImage handles background-size/position
+        var imgContainer = document.createElement('div');
+        imgContainer.className = 'cardImageContainer coveredImage cardContent';
+
+        if (rec.ImageUrl) {
+            imgContainer.style.backgroundImage = 'url("' + rec.ImageUrl + '")';
         }
 
         cardScalable.appendChild(padder);
@@ -207,27 +208,42 @@
 
         cardBox.appendChild(cardScalable);
 
-        // Footer with name and artist
-        var footer = document.createElement('div');
-        footer.className = 'cardFooter';
-
+        // Name text — link to Last.fm (direct child of cardBox, no cardFooter wrapper)
         var nameText = document.createElement('div');
         nameText.className = 'cardText cardTextCentered cardText-first';
         var nameBdi = document.createElement('bdi');
-        nameBdi.textContent = rec.Name;
+        if (rec.Links && rec.Links.LastFmUrl) {
+            var nameLink = document.createElement('a');
+            nameLink.className = 'textActionButton';
+            nameLink.href = rec.Links.LastFmUrl;
+            nameLink.target = '_blank';
+            nameLink.rel = 'noopener noreferrer';
+            nameLink.title = rec.Name;
+            nameLink.textContent = rec.Name;
+            nameBdi.appendChild(nameLink);
+        } else {
+            nameBdi.textContent = rec.Name;
+        }
         nameText.appendChild(nameBdi);
-        footer.appendChild(nameText);
+        cardBox.appendChild(nameText);
 
+        // Artist text — link to Last.fm artist page
         if (rec.ArtistName && rec.Type !== 'artist') {
             var artistText = document.createElement('div');
             artistText.className = 'cardText cardText-secondary cardTextCentered';
             var artistBdi = document.createElement('bdi');
-            artistBdi.textContent = rec.ArtistName;
+            var artistLink = document.createElement('a');
+            artistLink.className = 'textActionButton';
+            artistLink.href = 'https://www.last.fm/music/' + encodeURIComponent(rec.ArtistName);
+            artistLink.target = '_blank';
+            artistLink.rel = 'noopener noreferrer';
+            artistLink.title = rec.ArtistName;
+            artistLink.textContent = rec.ArtistName;
+            artistBdi.appendChild(artistLink);
             artistText.appendChild(artistBdi);
-            footer.appendChild(artistText);
+            cardBox.appendChild(artistText);
         }
 
-        cardBox.appendChild(footer);
         card.appendChild(cardBox);
 
         return card;

@@ -7,7 +7,7 @@ public class PluginConfiguration : BasePluginConfiguration
     public PluginConfiguration()
     {
         LastFmApiKey = string.Empty;
-        MaxRecommendations = 8;
+        MaxRecommendations = 12;
         CacheDurationMinutes = 30;
         EnableForArtists = true;
         EnableForAlbums = true;
