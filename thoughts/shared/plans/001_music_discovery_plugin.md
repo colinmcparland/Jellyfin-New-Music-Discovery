@@ -334,8 +334,8 @@ public class PluginConfiguration : BasePluginConfiguration
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] `dotnet build` compiles without errors
-- [ ] Plugin DLL is produced at `bin/Debug/net8.0/Jellyfin.Plugin.MusicDiscovery.dll`
+- [x] `dotnet build` compiles without errors
+- [x] Plugin DLL is produced at `bin/Debug/net8.0/Jellyfin.Plugin.MusicDiscovery.dll`
 
 #### Manual Verification:
 - [ ] Plugin loads in Jellyfin (visible in Dashboard > Plugins)
@@ -869,7 +869,7 @@ public class ServiceRegistrator : IPluginServiceRegistrator
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] `dotnet build` succeeds
+- [x] `dotnet build` succeeds
 - [ ] All Last.fm response models deserialize correctly (verified via unit test or manual API call)
 
 #### Manual Verification:
@@ -1193,7 +1193,7 @@ public class MusicDiscoveryController : ControllerBase
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] `dotnet build` succeeds
+- [x] `dotnet build` succeeds
 - [ ] Controller endpoints are accessible at `/MusicDiscovery/Similar/{itemId}`
 
 #### Manual Verification:
@@ -1613,7 +1613,7 @@ Implement the JavaScript that injects a recommendation panel into artist, album,
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] `dotnet build` succeeds (embedded resources included in DLL)
+- [x] `dotnet build` succeeds (embedded resources included in DLL)
 
 #### Manual Verification:
 - [ ] Discovery panel appears on artist detail pages with recommendation cards
@@ -1801,8 +1801,8 @@ For API errors (missing key, network issues), show a non-intrusive message:
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] `dotnet build` succeeds
-- [ ] Final DLL size is reasonable (< 1MB)
+- [x] `dotnet build` succeeds
+- [x] Final DLL size is reasonable (< 1MB)
 
 #### Manual Verification:
 - [ ] Loading spinner appears while recommendations are being fetched

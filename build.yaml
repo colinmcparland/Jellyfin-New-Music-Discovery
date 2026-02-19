@@ -1,0 +1,17 @@
+---
+name: "Music Discovery"
+guid: "a3b9c2d1-e4f5-6789-abcd-ef0123456789"
+version: "1.0.0.0"
+targetAbi: "10.10.0.0"
+framework: "net8.0"
+overview: "Music discovery and recommendations for Jellyfin"
+description: >
+  Discover similar music while browsing your library. Adds a 'Similar Music'
+  panel to artist, album, and track pages with recommendations from Last.fm,
+  with links to MusicBrainz, Discogs, Bandcamp, and Last.fm.
+category: "General"
+owner: "Colini"
+artifacts:
+- "Jellyfin.Plugin.MusicDiscovery.dll"
+changelog: >
+  Initial release with artist, album, and track recommendations via Last.fm.

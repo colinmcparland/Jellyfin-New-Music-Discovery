@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head><title>Music Discovery</title></head>
+<body>
+<div id="musicDiscoveryConfigPage" data-role="page"
+     class="page type-interior pluginConfigurationPage"
+     data-require="emby-input,emby-button,emby-checkbox,emby-select">
+  <div data-role="content">
+    <div class="content-primary">
+      <h2>Music Discovery Settings</h2>
+      <form id="musicDiscoveryConfigForm">
+        <div class="inputContainer">
+          <label class="inputLabel inputLabelUnfocused" for="txtLastFmApiKey">
+            Last.fm API Key
+          </label>
+          <input is="emby-input" type="text" id="txtLastFmApiKey" />
+          <div class="fieldDescription">
+            Get a free API key at <a href="https://www.last.fm/api/account/create" target="_blank">last.fm/api</a>.
+            Required for recommendations to work.
+          </div>
+        </div>
+
+        <div class="inputContainer">
+          <label class="inputLabel inputLabelUnfocused" for="selMaxResults">
+            Max Recommendations
+          </label>
+          <select is="emby-select" id="selMaxResults">
+            <option value="5">5</option>
+            <option value="8">8</option>
+            <option value="10">10</option>
+          </select>
+        </div>
+
+        <div class="inputContainer">
+          <label class="inputLabel inputLabelUnfocused" for="txtCacheDuration">
+            Cache Duration (minutes)
+          </label>
+          <input is="emby-input" type="number" id="txtCacheDuration" min="5" max="1440" />
+          <div class="fieldDescription">
+            How long to cache recommendations before re-fetching from Last.fm.
+          </div>
+        </div>
+
+        <h3>Enable Discovery Panel For:</h3>
+        <div class="checkboxContainer checkboxContainer-withDescription">
+          <label class="emby-checkbox-label">
+            <input is="emby-checkbox" type="checkbox" id="chkEnableArtists" />
+            <span>Artists</span>
+          </label>
+        </div>
+        <div class="checkboxContainer checkboxContainer-withDescription">
+          <label class="emby-checkbox-label">
+            <input is="emby-checkbox" type="checkbox" id="chkEnableAlbums" />
+            <span>Albums</span>
+          </label>
+        </div>
+        <div class="checkboxContainer checkboxContainer-withDescription">
+          <label class="emby-checkbox-label">
+            <input is="emby-checkbox" type="checkbox" id="chkEnableTracks" />
+            <span>Tracks</span>
+          </label>
+        </div>
+
+        <div>
+          <button is="emby-button" type="submit"
+                  class="raised button-submit block emby-button">
+            <span>Save</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <script src="configurationpage?name=MusicDiscoveryConfigJS"></script>
+  <script>
+    // Auto-load discovery panel script on first config page visit
+    if (!window.__musicDiscoveryLoaded) {
+        window.__musicDiscoveryLoaded = true;
+        var discoverScript = document.createElement('script');
+        discoverScript.src = 'configurationpage?name=MusicDiscoveryJS';
+        document.head.appendChild(discoverScript);
+    }
+  </script>
+</div>
+</body>
+</html>
