@@ -91,12 +91,20 @@ public class MusicDiscoveryController : ControllerBase
             Type = "artist"
         }).ToList();
 
-        // Enrich with tags from artist.getInfo (fire-and-forget for top results)
-        var enrichTasks = recommendations.Take(5).Select(async rec =>
+        // Enrich with tags and images (Last.fm deprecated artist images,
+        // so we fall back to the artist's top album cover art)
+        var enrichTasks = recommendations.Select(async rec =>
         {
             var info = await _lastFmClient.GetArtistInfoAsync(rec.Name, ct);
             if (info?.Tags.Tags != null)
                 rec.Tags = info.Tags.Tags.Select(t => t.Name).Take(3).ToList();
+
+            if (string.IsNullOrEmpty(rec.ImageUrl))
+            {
+                var topAlbums = await _lastFmClient.GetArtistTopAlbumsAsync(rec.Name, 1, ct);
+                if (topAlbums.Count > 0)
+                    rec.ImageUrl = GetBestImage(topAlbums[0].Images);
+            }
         });
         await Task.WhenAll(enrichTasks);
 

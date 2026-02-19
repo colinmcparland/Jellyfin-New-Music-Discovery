@@ -38,15 +38,24 @@
     function checkPage() {
         // 1. Are we on a detail page?
         var detailPage = document.querySelector('.itemDetailPage:not(.hide)');
-        if (!detailPage) return;
+        if (!detailPage) {
+            stopPreview();
+            return;
+        }
 
         // 2. Extract item ID from URL hash
         var hash = window.location.hash;
         var qIndex = hash.indexOf('?');
-        if (qIndex === -1) return;
+        if (qIndex === -1) {
+            stopPreview();
+            return;
+        }
         var params = new URLSearchParams(hash.substring(qIndex + 1));
         var itemId = params.get('id');
-        if (!itemId) return;
+        if (!itemId) {
+            stopPreview();
+            return;
+        }
 
         // 3. Panel already exists for this item IN THIS SLOT — nothing to do.
         //    Must scope to detailPage, not document, because Jellyfin's 3-slot
