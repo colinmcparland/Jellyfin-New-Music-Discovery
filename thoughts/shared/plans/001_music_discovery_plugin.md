@@ -1289,26 +1289,34 @@ Implement the JavaScript that injects a recommendation panel into artist, album,
     function fetchAndRenderPanel(item) {
         var url = ApiClient.getUrl('MusicDiscovery/Similar/' + item.Id);
 
-        fetch(url, {
-            headers: {
-                'Authorization': 'MediaBrowserToken ' + ApiClient.accessToken()
-            }
-        })
-        .then(function (response) {
-            if (!response.ok) {
-                if (response.status === 400) {
-                    console.log('Music Discovery: API key not configured');
-                }
-                return null;
-            }
-            return response.json();
-        })
+        // Show loading state
+        var loadingPanel = document.createElement('div');
+        loadingPanel.className = PANEL_CLASS + ' verticalSection';
+        loadingPanel.dataset.itemId = item.Id;
+        loadingPanel.innerHTML =
+            '<h2 class="sectionTitle md-discovery-title">Similar Music</h2>' +
+            '<div class="md-discovery-loading">' +
+            '<div class="md-discovery-spinner"></div>' +
+            '<span>Finding recommendations...</span>' +
+            '</div>';
+
+        var detailContent = document.querySelector('.detailPageContent')
+            || document.querySelector('.page');
+        if (detailContent) detailContent.appendChild(loadingPanel);
+
+        ApiClient.getJSON(url)
         .then(function (data) {
+            // Remove loading panel
+            var existing = document.querySelector('.' + PANEL_CLASS);
+            if (existing) existing.remove();
+
             if (!data || !data.Recommendations || data.Recommendations.length === 0) return;
             renderPanel(item, data);
         })
         .catch(function (err) {
             console.error('Music Discovery: Error fetching recommendations', err);
+            var existing = document.querySelector('.' + PANEL_CLASS);
+            if (existing) existing.remove();
         });
     }
 
@@ -1656,6 +1664,8 @@ Implement the JavaScript that injects a recommendation panel into artist, album,
 ### Overview
 The discovery panel JS needs to load automatically when users browse Jellyfin — not just when they visit the config page. Jellyfin has no built-in mechanism for plugins to inject scripts into the web client. The proven community approach (used by intro-skipper and others) is to integrate with the [JavaScript Injector plugin](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector), which handles in-memory `index.html` transformation that works on read-only filesystems (Docker, Flatpak).
 
+**Important**: JavaScript Injector requires the [File Transformation plugin](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation) for in-memory injection. Without it, JS Injector falls back to direct file writes which fail on read-only filesystems (Flatpak, Docker) with `UnauthorizedAccessException`. Both plugins must be installed.
+
 ### Why Previous Approaches Failed
 1. **Direct file injection** (Session 002): Flatpak/Docker mount `/app` as read-only — `UnauthorizedAccessException`
 2. **`IStartupFilter` middleware** (Session 003): Jellyfin wraps its pipeline inside `app.Map(baseUrl)`, so middleware registered via `IStartupFilter` runs outside that branch and never intercepts `index.html` responses
@@ -1820,23 +1830,36 @@ serviceCollection.AddHostedService<ScriptRegistration.ScriptRegistrationService>
 ```
 
 **File**: `Jellyfin.Plugin.MusicDiscovery/Configuration/configPage.js`
-**Changes**: Check the `GET /Plugins` API to detect if JS Injector is installed
+**Changes**: Check the `GET /Plugins` API to detect if both JS Injector and File Transformation are installed
 
 ```javascript
-// Check if JavaScript Injector plugin is installed
+// Check if required dependency plugins are installed
 ApiClient.getJSON(ApiClient.getUrl('Plugins')).then(function (plugins) {
     var list = Array.isArray(plugins) ? plugins : [];
-    var found = list.some(function (p) {
+    var hasJsInjector = list.some(function (p) {
         return p.Name && p.Name.indexOf('JavaScript Injector') !== -1;
     });
-    view.querySelector('#jsInjectorWarning').style.display = found ? 'none' : 'block';
+    var hasFileTransformation = list.some(function (p) {
+        return p.Name && p.Name.indexOf('File Transformation') !== -1;
+    });
+    // Build list of only the missing plugins
+    var missingItems = [];
+    if (!hasJsInjector) { missingItems.push('JavaScript Injector'); }
+    if (!hasFileTransformation) { missingItems.push('File Transformation'); }
+    // Show/hide warning with dynamic missing list
+    if (missingItems.length > 0) {
+        view.querySelector('#jsInjectorWarningList').innerHTML = missingItems.map(...);
+        view.querySelector('#jsInjectorWarning').style.display = 'block';
+    } else {
+        view.querySelector('#jsInjectorWarning').style.display = 'none';
+    }
 }).catch(function () {
     // If we can't check, show the warning as a safe default
     view.querySelector('#jsInjectorWarning').style.display = 'block';
 });
 ```
 
-Note: Uses `ApiClient.getJSON()` instead of raw `fetch()` — the raw fetch with manual `Authorization` header returned 401. `ApiClient.getJSON()` handles auth automatically.
+Note: Uses `ApiClient.getJSON()` instead of raw `fetch()` — the raw fetch with manual `Authorization` header returned 401. `ApiClient.getJSON()` handles auth automatically. Warning dynamically lists only the specific missing plugins.
 
 #### 4. Project Dependency
 
