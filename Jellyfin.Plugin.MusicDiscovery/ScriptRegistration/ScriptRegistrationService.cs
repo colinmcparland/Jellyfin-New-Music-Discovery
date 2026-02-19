@@ -37,7 +37,7 @@ public class ScriptRegistrationService : IHostedService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Music Discovery: Failed to register with JavaScript Injector plugin");
+            _logger.LogError(ex, "New Music Discovery: Failed to register with JavaScript Injector plugin");
         }
 
         return Task.CompletedTask;
@@ -51,7 +51,7 @@ public class ScriptRegistrationService : IHostedService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Music Discovery: Failed to unregister from JavaScript Injector plugin");
+            _logger.LogWarning(ex, "New Music Discovery: Failed to unregister from JavaScript Injector plugin");
         }
 
         return Task.CompletedTask;
@@ -68,17 +68,17 @@ public class ScriptRegistrationService : IHostedService
         var payload = new JObject
         {
             { "id", ScriptId },
-            { "name", "Music Discovery Panel" },
+            { "name", "New Music Discovery Panel" },
             { "script", LoaderScript },
             { "enabled", true },
             { "requiresAuthentication", true },
             { "pluginId", Plugin.Instance?.Id.ToString() ?? string.Empty },
-            { "pluginName", "Music Discovery" },
+            { "pluginName", "New Music Discovery" },
             { "pluginVersion", Plugin.Instance?.Version?.ToString() ?? "0.0.0" }
         };
 
         var result = registerMethod.Invoke(null, new object[] { payload });
-        _logger.LogInformation("Music Discovery: Registered script with JavaScript Injector (result: {Result})", result);
+        _logger.LogInformation("New Music Discovery: Registered script with JavaScript Injector (result: {Result})", result);
     }
 
     private void UnregisterFromJavaScriptInjector()
@@ -91,7 +91,7 @@ public class ScriptRegistrationService : IHostedService
 
         var pluginId = Plugin.Instance?.Id.ToString() ?? string.Empty;
         unregisterMethod.Invoke(null, new object[] { pluginId });
-        _logger.LogInformation("Music Discovery: Unregistered scripts from JavaScript Injector");
+        _logger.LogInformation("New Music Discovery: Unregistered scripts from JavaScript Injector");
     }
 
     private System.Reflection.MethodInfo? FindPluginInterfaceMethod(string methodName)
@@ -103,7 +103,7 @@ public class ScriptRegistrationService : IHostedService
         if (assembly == null)
         {
             _logger.LogWarning(
-                "Music Discovery: JavaScript Injector plugin not found. "
+                "New Music Discovery: JavaScript Injector plugin not found. "
                 + "Install it from the Jellyfin plugin catalog to enable the discovery panel");
             return null;
         }
@@ -111,14 +111,14 @@ public class ScriptRegistrationService : IHostedService
         var pluginInterfaceType = assembly.GetType("Jellyfin.Plugin.JavaScriptInjector.PluginInterface");
         if (pluginInterfaceType == null)
         {
-            _logger.LogWarning("Music Discovery: JavaScriptInjector PluginInterface type not found");
+            _logger.LogWarning("New Music Discovery: JavaScriptInjector PluginInterface type not found");
             return null;
         }
 
         var method = pluginInterfaceType.GetMethod(methodName);
         if (method == null)
         {
-            _logger.LogWarning("Music Discovery: {Method} method not found on PluginInterface", methodName);
+            _logger.LogWarning("New Music Discovery: {Method} method not found on PluginInterface", methodName);
         }
 
         return method;

@@ -95,7 +95,7 @@
         loadingPanel.className = PANEL_CLASS + ' verticalSection';
         loadingPanel.dataset.itemId = item.Id;
         loadingPanel.innerHTML =
-            '<h2 class="sectionTitle sectionTitle-cards">Similar Music</h2>' +
+            '<h2 class="sectionTitle sectionTitle-cards">Discover New Music</h2>' +
             '<div class="md-discovery-loading">' +
             '<div class="md-discovery-spinner"></div>' +
             '<span>Finding recommendations...</span>' +
@@ -126,7 +126,7 @@
                 _injecting = false;
             })
             .catch(function (err) {
-                console.error('Music Discovery: Error fetching recommendations', err);
+                console.error('New Music Discovery: Error fetching recommendations', err);
                 _injecting = true;
                 var existing = detailPage.querySelector('.' + PANEL_CLASS);
                 if (existing) existing.remove();
@@ -137,7 +137,7 @@
     function renderPanel(item, data, detailPage) {
         var typeLabel = data.SourceType === 'artist' ? 'Artists'
             : data.SourceType === 'album' ? 'Albums'
-                : 'Tracks';
+                : 'Songs';
 
         var panel = document.createElement('div');
         panel.className = PANEL_CLASS + ' verticalSection';
@@ -147,7 +147,7 @@
         var headerContainer = document.createElement('div');
         var header = document.createElement('h2');
         header.className = 'sectionTitle sectionTitle-cards';
-        header.textContent = 'Similar ' + typeLabel;
+        header.textContent = 'Discover New ' + typeLabel;
         headerContainer.appendChild(header);
         panel.appendChild(headerContainer);
 

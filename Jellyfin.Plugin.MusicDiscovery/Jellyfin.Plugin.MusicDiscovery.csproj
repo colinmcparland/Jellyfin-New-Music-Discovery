@@ -27,4 +27,8 @@
     <EmbeddedResource Include="Configuration/**" />
     <EmbeddedResource Include="Web/**" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="logo.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

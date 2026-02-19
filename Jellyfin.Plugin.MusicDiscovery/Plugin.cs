@@ -16,7 +16,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     }
 
     public static Plugin? Instance { get; private set; }
-    public override string Name => "Music Discovery";
+    public override string Name => "New Music Discovery";
     public override Guid Id => Guid.Parse("a3b9c2d1-e4f5-6789-abcd-ef0123456789");
 
     public IEnumerable<PluginPageInfo> GetPages()
@@ -28,7 +28,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             {
                 Name = "MusicDiscoveryConfig",
                 EmbeddedResourcePath = ns + ".Configuration.configPage.html",
-                DisplayName = "Music Discovery",
+                DisplayName = "New Music Discovery",
                 EnableInMainMenu = true,
                 MenuSection = "server",
                 MenuIcon = "music_note"
