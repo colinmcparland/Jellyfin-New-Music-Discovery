@@ -111,33 +111,31 @@
         var section = document.createElement('div');
         section.className = 'verticalSection md-saved-section';
 
-        // Header with "View All" link
+        // Header with "View All" link — matches native sectionTitleContainer flex layout
         var headerContainer = document.createElement('div');
-        headerContainer.className = 'sectionTitleContainer sectionTitleContainer-cards';
+        headerContainer.className = 'sectionTitleContainer sectionTitleContainer-cards padded-left padded-right';
+
         var header = document.createElement('h2');
         header.className = 'sectionTitle sectionTitle-cards';
         header.textContent = 'Saved Recommendations';
 
         var viewAllLink = document.createElement('a');
-        viewAllLink.className = 'button-flat button-flat-mini sectionTitleTextButton btnMoreFromGenre';
+        viewAllLink.className = 'button-flat button-flat-mini sectionTitleTextButton';
         viewAllLink.href = '#/configurationpage?name=SavedRecommendationsPage';
         viewAllLink.textContent = 'View All >';
-        viewAllLink.style.marginLeft = '1em';
-        viewAllLink.style.fontSize = '0.8em';
 
         headerContainer.appendChild(header);
         headerContainer.appendChild(viewAllLink);
         section.appendChild(headerContainer);
 
-        // Scroller — same pattern as detail page
-        var scroller = document.createElement('div', 'emby-scroller');
-        scroller.setAttribute('is', 'emby-scroller');
-        scroller.className = 'padded-top-focusscale padded-bottom-focusscale no-padding emby-scroller';
-        scroller.setAttribute('data-centerfocus', 'true');
-        scroller.setAttribute('data-scroll-mode-x', 'custom');
+        // Plain scrollable container — avoids emby-scroller custom element
+        // which causes "pause is not a function" errors when Jellyfin's
+        // home tab controller tries to pause uninitialized custom elements
+        var scroller = document.createElement('div');
+        scroller.className = 'padded-top-focusscale padded-bottom-focusscale md-home-scroller';
 
         var slider = document.createElement('div');
-        slider.className = 'scrollSlider focuscontainer-x itemsContainer animatedScrollX';
+        slider.className = 'scrollSlider focuscontainer-x itemsContainer';
         slider.style.whiteSpace = 'nowrap';
 
         items.forEach(function (item) {
@@ -162,10 +160,20 @@
         scroller.appendChild(slider);
         section.appendChild(scroller);
 
-        // Insert near the top of the homepage content
-        var firstSection = container.querySelector('.verticalSection');
-        if (firstSection && firstSection.parentNode) {
-            firstSection.parentNode.insertBefore(section, firstSection);
+        // Insert after the "Recently Added in Music" section if found,
+        // otherwise fall back to appending at the end
+        var allSections = container.querySelectorAll('.verticalSection');
+        var musicSection = null;
+        for (var i = 0; i < allSections.length; i++) {
+            var title = allSections[i].querySelector('.sectionTitle');
+            if (title && title.textContent.toLowerCase().indexOf('music') !== -1) {
+                musicSection = allSections[i];
+                break;
+            }
+        }
+
+        if (musicSection) {
+            musicSection.parentNode.insertBefore(section, musicSection.nextSibling);
         } else {
             container.appendChild(section);
         }

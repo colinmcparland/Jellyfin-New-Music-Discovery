@@ -16,6 +16,27 @@
     display: none; /* Chrome/Safari */
 }
 
+/* Homepage saved section: plain div scroller (no emby-scroller) */
+.md-home-scroller {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-left: 3.3%;
+    padding-right: 3.3%;
+}
+
+@supports(width: max(1px, 1px)) {
+    .md-home-scroller {
+        padding-left: max(env(safe-area-inset-left), 3.3%);
+        padding-right: max(env(safe-area-inset-right), 3.3%);
+    }
+}
+
+.md-home-scroller::-webkit-scrollbar {
+    display: none;
+}
+
 /* Play button overlay */
 .md-play-overlay {
     position: absolute;
