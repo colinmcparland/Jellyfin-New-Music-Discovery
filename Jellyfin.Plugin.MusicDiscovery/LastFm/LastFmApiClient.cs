@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
@@ -124,6 +125,55 @@ public class LastFmApiClient
             return response.TopAlbums.Albums;
         }
         return new List<TopAlbumEntry>();
+    }
+
+    /// <summary>
+    /// Fetches an artist image from the iTunes Search API.
+    /// Results are cached alongside Last.fm responses to avoid redundant calls.
+    /// iTunes rate limit is ~20 calls/minute; caching keeps us well under that.
+    /// </summary>
+    public async Task<string?> GetArtistImageFromITunesAsync(
+        string artistName, CancellationToken ct = default)
+    {
+        var cacheKey = $"itunes.artistImage:{artistName}";
+
+        // Check cache (includes negative hits cached as empty string)
+        if (_cache.TryGetValue(cacheKey, out var entry) && entry.ExpiresAt > DateTime.UtcNow)
+        {
+            var cached = entry.Data as string;
+            return string.IsNullOrEmpty(cached) ? null : cached;
+        }
+
+        string? imageUrl = null;
+        try
+        {
+            var searchUrl = $"https://itunes.apple.com/search?term={Uri.EscapeDataString(artistName)}&entity=musicArtist&limit=1";
+            var client = _httpClientFactory.CreateClient("MusicDiscovery");
+            var response = await client.GetAsync(searchUrl, ct);
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync(ct);
+                using var doc = JsonDocument.Parse(json);
+                var results = doc.RootElement.GetProperty("results");
+                if (results.GetArrayLength() > 0)
+                {
+                    var first = results[0];
+                    if (first.TryGetProperty("artworkUrl100", out var artworkEl))
+                    {
+                        // Upscale from 100x100 to 600x600
+                        imageUrl = artworkEl.GetString()?.Replace("100x100", "600x600");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "iTunes artist image lookup failed for {Artist}", artistName);
+        }
+
+        // Cache both hits and misses to avoid repeated lookups
+        SetCache(cacheKey, (object)(imageUrl ?? string.Empty));
+        return imageUrl;
     }
 
     private string BuildUrl(string method, params (string key, string value)[] parameters)

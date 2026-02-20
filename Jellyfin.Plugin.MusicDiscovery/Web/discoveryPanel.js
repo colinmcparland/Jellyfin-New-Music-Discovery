@@ -121,6 +121,9 @@
 
                 if (data && data.Recommendations && data.Recommendations.length > 0) {
                     renderPanel(item, data, detailPage);
+                } else {
+                    // Keep an empty sentinel panel so the observer doesn't re-trigger
+                    renderEmptyPanel(item, detailPage);
                 }
 
                 _injecting = false;
@@ -130,6 +133,8 @@
                 _injecting = true;
                 var existing = detailPage.querySelector('.' + PANEL_CLASS);
                 if (existing) existing.remove();
+                // Keep a sentinel so we don't retry endlessly on errors
+                renderEmptyPanel(item, detailPage);
                 _injecting = false;
             });
     }
@@ -172,6 +177,17 @@
 
         var detailContent = detailPage.querySelector('.detailPageContent') || detailPage;
         detailContent.appendChild(panel);
+    }
+
+    function renderEmptyPanel(item, detailPage) {
+        _injecting = true;
+        var panel = document.createElement('div');
+        panel.className = PANEL_CLASS;
+        panel.dataset.itemId = item.Id;
+        panel.style.display = 'none';
+        var detailContent = detailPage.querySelector('.detailPageContent') || detailPage;
+        detailContent.appendChild(panel);
+        _injecting = false;
     }
 
     function createCard(rec) {

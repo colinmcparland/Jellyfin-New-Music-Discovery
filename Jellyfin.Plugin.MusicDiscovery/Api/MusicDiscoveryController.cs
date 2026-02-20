@@ -1,10 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using System.Net.Mime;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MusicDiscovery.LastFm;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Audio;
@@ -24,18 +24,15 @@ public class MusicDiscoveryController : ControllerBase
 {
     private readonly ILibraryManager _libraryManager;
     private readonly LastFmApiClient _lastFmClient;
-    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<MusicDiscoveryController> _logger;
 
     public MusicDiscoveryController(
         ILibraryManager libraryManager,
         LastFmApiClient lastFmClient,
-        IHttpClientFactory httpClientFactory,
         ILogger<MusicDiscoveryController> logger)
     {
         _libraryManager = libraryManager;
         _lastFmClient = lastFmClient;
-        _httpClientFactory = httpClientFactory;
         _logger = logger;
     }
 
@@ -83,9 +80,18 @@ public class MusicDiscoveryController : ControllerBase
     private async Task<RecommendationsResponse> GetArtistRecommendations(
         string artistName, int limit, CancellationToken ct)
     {
-        var similar = await _lastFmClient.GetSimilarArtistsAsync(artistName, limit, ct);
+        // Over-fetch to account for filtering out artists already in the library
+        var fetchLimit = Math.Min(limit * 3, 50);
+        var similar = await _lastFmClient.GetSimilarArtistsAsync(artistName, fetchLimit, ct);
 
-        var recommendations = similar.Select(a => new RecommendationDto
+        // Filter out artists the user already has in their library
+        var libraryArtists = GetLibraryArtistNames();
+        var filtered = similar
+            .Where(a => !libraryArtists.Contains(a.Name))
+            .Take(limit)
+            .ToList();
+
+        var recommendations = filtered.Select(a => new RecommendationDto
         {
             Name = a.Name,
             ArtistName = a.Name,
@@ -96,8 +102,9 @@ public class MusicDiscoveryController : ControllerBase
             Type = "artist"
         }).ToList();
 
-        // Enrich with tags and images (Last.fm deprecated artist images,
-        // so we fall back to the artist's top album art, then iTunes artist art)
+        // Enrich with tags and images.
+        // Last.fm deprecated artist images entirely, so use iTunes as primary
+        // image source, with top album art as fallback.
         var enrichTasks = recommendations.Select(async rec =>
         {
             var info = await _lastFmClient.GetArtistInfoAsync(rec.Name, ct);
@@ -106,14 +113,14 @@ public class MusicDiscoveryController : ControllerBase
 
             if (string.IsNullOrEmpty(rec.ImageUrl))
             {
-                var topAlbums = await _lastFmClient.GetArtistTopAlbumsAsync(rec.Name, 1, ct);
-                if (topAlbums.Count > 0)
-                    rec.ImageUrl = GetBestImage(topAlbums[0].Images);
+                rec.ImageUrl = await _lastFmClient.GetArtistImageFromITunesAsync(rec.Name, ct);
             }
 
             if (string.IsNullOrEmpty(rec.ImageUrl))
             {
-                rec.ImageUrl = await GetArtistImageFromITunesAsync(rec.Name, ct);
+                var topAlbums = await _lastFmClient.GetArtistTopAlbumsAsync(rec.Name, 1, ct);
+                if (topAlbums.Count > 0)
+                    rec.ImageUrl = GetBestImage(topAlbums[0].Images);
             }
         });
         await Task.WhenAll(enrichTasks);
@@ -129,11 +136,10 @@ public class MusicDiscoveryController : ControllerBase
     private async Task<RecommendationsResponse> GetAlbumRecommendations(
         string artistName, string albumName, int limit, CancellationToken ct)
     {
-        // Strategy: get similar artists, then their top albums
-        // Fetch enough similar artists so that (artists × 2 albums) >= limit
-        var artistCount = (limit + 3) / 2;
+        // Strategy: get similar artists, then their top albums.
+        // Over-fetch similar artists to account for library filtering.
+        var artistCount = Math.Min(limit * 2, 30);
         var similarArtists = await _lastFmClient.GetSimilarArtistsAsync(artistName, artistCount, ct);
-        var recommendations = new List<RecommendationDto>();
 
         var albumTasks = similarArtists.Select(async artist =>
         {
@@ -152,8 +158,13 @@ public class MusicDiscoveryController : ControllerBase
         });
 
         var albumResults = await Task.WhenAll(albumTasks);
-        recommendations = albumResults
+
+        // Filter out albums already in the library, then take the desired count
+        var libraryAlbums = GetLibraryAlbumKeys();
+        var recommendations = albumResults
             .SelectMany(x => x)
+            .Where(rec => !libraryAlbums.Contains(
+                $"{rec.ArtistName}\0{rec.Name}".ToLowerInvariant()))
             .OrderByDescending(x => x.MatchScore)
             .Take(limit)
             .ToList();
@@ -178,9 +189,19 @@ public class MusicDiscoveryController : ControllerBase
     private async Task<RecommendationsResponse> GetTrackRecommendations(
         string artistName, string trackName, int limit, CancellationToken ct)
     {
-        var similar = await _lastFmClient.GetSimilarTracksAsync(artistName, trackName, limit, ct);
+        // Over-fetch to account for filtering out tracks already in the library
+        var fetchLimit = Math.Min(limit * 3, 50);
+        var similar = await _lastFmClient.GetSimilarTracksAsync(artistName, trackName, fetchLimit, ct);
 
-        var recommendations = similar.Select(t => new RecommendationDto
+        // Filter out tracks already in the library
+        var libraryTracks = GetLibraryTrackKeys();
+        var filtered = similar
+            .Where(t => !libraryTracks.Contains(
+                $"{t.Artist.Name}\0{t.Name}".ToLowerInvariant()))
+            .Take(limit)
+            .ToList();
+
+        var recommendations = filtered.Select(t => new RecommendationDto
         {
             Name = t.Name,
             ArtistName = t.Artist.Name,
@@ -200,50 +221,72 @@ public class MusicDiscoveryController : ControllerBase
         };
     }
 
+    // --- Library lookup helpers ---
+    // These query Jellyfin's in-memory database (fast) and build HashSets
+    // for O(1) lookup when filtering recommendations.
+
+    private HashSet<string> GetLibraryArtistNames()
+    {
+        var query = new InternalItemsQuery
+        {
+            IncludeItemTypes = new[] { BaseItemKind.MusicArtist },
+            Recursive = true
+        };
+        return _libraryManager.GetItemList(query)
+            .Select(a => a.Name)
+            .Where(n => !string.IsNullOrEmpty(n))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private HashSet<string> GetLibraryAlbumKeys()
+    {
+        var query = new InternalItemsQuery
+        {
+            IncludeItemTypes = new[] { BaseItemKind.MusicAlbum },
+            Recursive = true
+        };
+        return _libraryManager.GetItemList(query)
+            .OfType<MusicAlbum>()
+            .Select(a => $"{a.AlbumArtists?.FirstOrDefault() ?? ""}\0{a.Name}".ToLowerInvariant())
+            .ToHashSet();
+    }
+
+    private HashSet<string> GetLibraryTrackKeys()
+    {
+        var query = new InternalItemsQuery
+        {
+            IncludeItemTypes = new[] { BaseItemKind.Audio },
+            Recursive = true
+        };
+        return _libraryManager.GetItemList(query)
+            .OfType<Audio>()
+            .Select(t => $"{t.Artists?.FirstOrDefault() ?? ""}\0{t.Name}".ToLowerInvariant())
+            .ToHashSet();
+    }
+
     private static string? GetBestImage(List<LastFm.Models.LastFmImage>? images)
     {
         if (images == null || images.Count == 0) return null;
 
-        // Prefer extralarge > large > medium, skip empty URLs
+        // Prefer extralarge > large > medium, skip empty URLs and Last.fm placeholder
         var preferred = new[] { "extralarge", "large", "medium", "mega" };
         foreach (var size in preferred)
         {
             var img = images.FirstOrDefault(i =>
-                i.Size == size && !string.IsNullOrEmpty(i.Url));
+                i.Size == size && IsValidImageUrl(i.Url));
             if (img != null) return img.Url;
         }
 
-        return images.FirstOrDefault(i => !string.IsNullOrEmpty(i.Url))?.Url;
+        return images.FirstOrDefault(i => IsValidImageUrl(i.Url))?.Url;
     }
 
-    private async Task<string?> GetArtistImageFromITunesAsync(
-        string artistName, CancellationToken ct)
+    private static bool IsValidImageUrl(string? url)
     {
-        try
-        {
-            var searchUrl = $"https://itunes.apple.com/search?term={Uri.EscapeDataString(artistName)}&entity=musicArtist&limit=1";
-            var client = _httpClientFactory.CreateClient("MusicDiscovery");
-            var response = await client.GetAsync(searchUrl, ct);
-            if (!response.IsSuccessStatusCode) return null;
+        if (string.IsNullOrEmpty(url)) return false;
 
-            var json = await response.Content.ReadAsStringAsync(ct);
-            using var doc = JsonDocument.Parse(json);
-            var results = doc.RootElement.GetProperty("results");
-            if (results.GetArrayLength() == 0) return null;
-
-            var first = results[0];
-            if (first.TryGetProperty("artworkUrl100", out var artworkEl))
-            {
-                // Upscale from 100x100 to 600x600
-                return artworkEl.GetString()?.Replace("100x100", "600x600");
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "iTunes artist image lookup failed for {Artist}", artistName);
-        }
-
-        return null;
+        // Last.fm deprecated artist images but still returns a default star/placeholder.
+        // The placeholder hash is consistent across all sizes.
+        return !url.Contains("2a96cbd8b46e442fc41c2b86b821562f", StringComparison.Ordinal);
     }
 
     private static string? NullIfEmpty(string? value)
