@@ -8,6 +8,14 @@
     "category": "Music",
     "versions": [
       {
+        "version": "0.16.0.0",
+        "changelog": "Release v0.16.0.0",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/colinmcparland/Jellyfin-New-Music-Discovery/releases/download/v0.16.0.0/music-discovery_0.16.0.0.zip",
+        "checksum": "8543235ee194875adf6c9ca6cfc76deb",
+        "timestamp": "2026-02-20T06:17:04Z"
+      },
+      {
         "version": "0.14.0.0",
         "changelog": "Release v0.14.0.0",
         "targetAbi": "10.10.0.0",
