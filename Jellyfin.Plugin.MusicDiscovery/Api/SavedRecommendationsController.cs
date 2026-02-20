@@ -94,28 +94,22 @@ public class SavedRecommendationsController : ControllerBase
         return Ok();
     }
 
-    [HttpGet("Check")]
+    [HttpPost("Check")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<List<SavedCheckResult>>> CheckSaved(
-        [FromQuery] string names,
-        [FromQuery] string artists,
-        [FromQuery] string types)
+        [FromBody] CheckRecommendationsRequest request)
     {
         var userId = await GetUserIdAsync().ConfigureAwait(false);
         var data = await _store.LoadAsync(userId).ConfigureAwait(false);
 
-        var nameList = (names ?? string.Empty).Split(',');
-        var artistList = (artists ?? string.Empty).Split(',');
-        var typeList = (types ?? string.Empty).Split(',');
-
         var results = new List<SavedCheckResult>();
-        var count = Math.Min(nameList.Length, Math.Min(artistList.Length, typeList.Length));
+        var count = Math.Min(request.Names.Count, Math.Min(request.Artists.Count, request.Types.Count));
 
         for (int i = 0; i < count; i++)
         {
-            var n = nameList[i];
-            var a = artistList[i];
-            var t = typeList[i];
+            var n = request.Names[i];
+            var a = request.Artists[i];
+            var t = request.Types[i];
 
             var match = data.Items.Any(x =>
                 string.Equals(x.Name, n, StringComparison.OrdinalIgnoreCase) &&

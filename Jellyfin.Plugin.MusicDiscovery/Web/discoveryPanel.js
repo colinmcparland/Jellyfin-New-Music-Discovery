@@ -164,8 +164,8 @@
 
         // Insert near the top of the homepage content
         var firstSection = container.querySelector('.verticalSection');
-        if (firstSection) {
-            container.insertBefore(section, firstSection);
+        if (firstSection && firstSection.parentNode) {
+            firstSection.parentNode.insertBefore(section, firstSection);
         } else {
             container.appendChild(section);
         }
@@ -431,12 +431,14 @@
         var artists = recommendations.map(function(r) { return r.ArtistName; });
         var types = recommendations.map(function(r) { return r.Type; });
 
-        var url = ApiClient.getUrl('MusicDiscovery/Saved/Check')
-            + '?names=' + encodeURIComponent(names.join(','))
-            + '&artists=' + encodeURIComponent(artists.join(','))
-            + '&types=' + encodeURIComponent(types.join(','));
+        var url = ApiClient.getUrl('MusicDiscovery/Saved/Check');
 
-        ApiClient.getJSON(url).then(function (savedList) {
+        ApiClient.ajax({
+            type: 'POST', url: url,
+            contentType: 'application/json',
+            data: JSON.stringify({ Names: names, Artists: artists, Types: types }),
+            dataType: 'json'
+        }).then(function (savedList) {
             var savedKeys = {};
             savedList.forEach(function (s) {
                 savedKeys[s.Name + '\0' + s.ArtistName + '\0' + s.Type] = true;
