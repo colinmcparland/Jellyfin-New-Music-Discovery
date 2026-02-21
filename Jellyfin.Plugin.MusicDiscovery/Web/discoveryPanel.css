@@ -4,6 +4,16 @@
 
 }
 
+/* Cards must be inline-block for horizontal scrolling.
+   Native Jellyfin uses .itemsContainer for this, but that class
+   also enables long-press multi-select, so we replicate the
+   inline layout ourselves. */
+.musicDiscoveryPanel .scrollSlider > .card,
+.md-saved-section .scrollSlider > .card {
+    display: inline-block;
+    vertical-align: top;
+}
+
 /* Horizontal scroll for discovery sections */
 .musicDiscoveryPanel .scrollSlider,
 .md-saved-section .scrollSlider {

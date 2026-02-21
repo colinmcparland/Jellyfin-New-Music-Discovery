@@ -1,4 +1,4 @@
-(function () {
+export default function (view) {
     'use strict';
 
     // Ensure CSS is loaded
@@ -10,9 +10,13 @@
         document.head.appendChild(cssLink);
     }
 
+    view.addEventListener('viewshow', function () {
+        loadSaved();
+    });
+
     function loadSaved() {
-        var grid = document.getElementById('savedGrid');
-        var empty = document.getElementById('savedEmpty');
+        var grid = view.querySelector('#savedGrid');
+        var empty = view.querySelector('#savedEmpty');
         if (!grid) return;
 
         grid.innerHTML = '';
@@ -132,19 +136,11 @@
         }).then(function () {
             cardElement.remove();
             // Check if grid is now empty
-            var grid = document.getElementById('savedGrid');
-            var empty = document.getElementById('savedEmpty');
+            var grid = view.querySelector('#savedGrid');
+            var empty = view.querySelector('#savedEmpty');
             if (grid && grid.children.length === 0 && empty) {
                 empty.style.display = '';
             }
         });
     }
-
-    // Page lifecycle
-    var page = document.querySelector('#savedRecommendationsPage');
-    if (page) {
-        page.addEventListener('viewshow', loadSaved);
-        // Also load immediately if we're already on the page
-        loadSaved();
-    }
-})();
+}
