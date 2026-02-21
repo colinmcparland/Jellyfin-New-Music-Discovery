@@ -66,22 +66,31 @@ export default function (view) {
         cardScalable.appendChild(padder);
         cardScalable.appendChild(imgContainer);
 
-        // Delete button overlay
-        var deleteBtn = document.createElement('button');
-        deleteBtn.className = 'md-delete-btn';
-        deleteBtn.setAttribute('aria-label', 'Delete saved recommendation');
-        var deleteIcon = document.createElement('span');
-        deleteIcon.className = 'material-icons';
-        deleteIcon.textContent = 'close';
-        deleteBtn.appendChild(deleteIcon);
+        // Overlay — same native structure as recommendation tiles
+        var overlayContainer = document.createElement('div');
+        overlayContainer.className = 'cardOverlayContainer';
 
-        deleteBtn.addEventListener('click', function (e) {
+        var brContainer = document.createElement('div');
+        brContainer.className = 'cardOverlayButton-br flex';
+
+        var bookmarkBtn = document.createElement('button');
+        bookmarkBtn.className = 'cardOverlayButton cardOverlayButton-hover md-bookmark-btn md-saved';
+        bookmarkBtn.setAttribute('title', 'Remove saved recommendation');
+        var bookmarkIcon = document.createElement('span');
+        bookmarkIcon.className = 'material-icons cardOverlayButtonIcon cardOverlayButtonIcon-hover';
+        bookmarkIcon.textContent = 'bookmark';
+        bookmarkIcon.setAttribute('aria-hidden', 'true');
+        bookmarkBtn.appendChild(bookmarkIcon);
+
+        bookmarkBtn.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
             deleteSaved(item, card);
         });
 
-        cardScalable.appendChild(deleteBtn);
+        brContainer.appendChild(bookmarkBtn);
+        overlayContainer.appendChild(brContainer);
+        cardScalable.appendChild(overlayContainer);
         cardBox.appendChild(cardScalable);
 
         // Name text
@@ -135,7 +144,6 @@ export default function (view) {
             })
         }).then(function () {
             cardElement.remove();
-            // Check if grid is now empty
             var grid = view.querySelector('#savedGrid');
             var empty = view.querySelector('#savedEmpty');
             if (grid && grid.children.length === 0 && empty) {

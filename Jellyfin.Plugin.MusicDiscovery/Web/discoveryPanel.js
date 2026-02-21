@@ -5,8 +5,8 @@
     var _generation = 0;
     var _injecting = false;
     var _debounceTimer = null;
-    var _audio = null;       // Shared HTMLAudioElement
-    var _activeOverlay = null; // Currently playing overlay element
+    var _audio = null;        // Shared HTMLAudioElement
+    var _activePlayBtn = null; // Currently playing button element
 
     // Load CSS
     var cssLink = document.querySelector('link[href*="MusicDiscoveryCSS"]');
@@ -290,7 +290,7 @@
     }
 
     function createCard(rec) {
-        // Outer card wrapper — matches native 'More Like This' structure
+        // Outer card wrapper — matches native Jellyfin card structure
         var card = document.createElement('div');
         card.className = 'card overflowSquareCard card-hoverable';
 
@@ -305,15 +305,14 @@
         padder.className = 'cardPadder cardPadder-overflowSquare';
 
         if (!rec.ImageUrl) {
-            // Fallback icon inside padder (matches native pattern)
-            var icon = document.createElement('span');
-            icon.className = 'material-icons cardImageIcon';
-            icon.textContent = rec.Type === 'artist' ? 'person' : 'album';
-            icon.setAttribute('aria-hidden', 'true');
-            padder.appendChild(icon);
+            var placeholderIcon = document.createElement('span');
+            placeholderIcon.className = 'material-icons cardImageIcon';
+            placeholderIcon.textContent = rec.Type === 'artist' ? 'person' : 'album';
+            placeholderIcon.setAttribute('aria-hidden', 'true');
+            padder.appendChild(placeholderIcon);
         }
 
-        // Image container — coveredImage handles background-size/position
+        // Image container
         var imgContainer = document.createElement('div');
         imgContainer.className = 'cardImageContainer coveredImage cardContent';
 
@@ -324,41 +323,56 @@
         cardScalable.appendChild(padder);
         cardScalable.appendChild(imgContainer);
 
-        if (rec.Type === 'artist' && rec.Links && rec.Links.LastFmUrl) {
-            // Artist cards: entire image links to Last.fm profile
-            var imgLink = document.createElement('a');
-            imgLink.className = 'md-artist-img-link';
-            imgLink.href = rec.Links.LastFmUrl;
-            imgLink.target = '_blank';
-            imgLink.rel = 'noopener noreferrer';
-            imgLink.title = rec.Name + ' on Last.fm';
-            cardScalable.appendChild(imgLink);
-        } else if (rec.Type !== 'artist') {
-            // Play button overlay (albums and tracks only)
-            var overlayBtn = createPlayButton(rec);
-            cardScalable.appendChild(overlayBtn);
+        // Overlay — matches native cardOverlayContainer structure
+        var overlayContainer = document.createElement('div');
+        overlayContainer.className = 'cardOverlayContainer';
+
+        if (rec.Type !== 'artist') {
+            // Play button (centered) — albums and tracks only
+            var playBtn = document.createElement('button');
+            playBtn.className = 'cardOverlayButton cardOverlayButton-hover cardOverlayFab-primary';
+            playBtn.setAttribute('aria-label', 'Play preview');
+            playBtn.dataset.artist = rec.ArtistName || '';
+            playBtn.dataset.track = rec.Type === 'track' ? rec.Name : '';
+            playBtn.dataset.album = rec.Type === 'album' ? rec.Name : '';
+            playBtn.dataset.type = rec.Type;
+            var playIcon = document.createElement('span');
+            playIcon.className = 'material-icons cardOverlayButtonIcon cardOverlayButtonIcon-hover';
+            playIcon.textContent = 'play_arrow';
+            playIcon.setAttribute('aria-hidden', 'true');
+            playBtn.appendChild(playIcon);
+            playBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                handlePlayClick(playBtn);
+            });
+            overlayContainer.appendChild(playBtn);
         }
 
-        // Bookmark button — top-right corner
-        var bookmarkBtn = document.createElement('button');
-        bookmarkBtn.className = 'md-bookmark-btn';
-        bookmarkBtn.setAttribute('aria-label', 'Save recommendation');
-        var bookmarkIcon = document.createElement('span');
-        bookmarkIcon.className = 'material-icons';
-        bookmarkIcon.textContent = 'bookmark_border';
-        bookmarkBtn.appendChild(bookmarkIcon);
+        // Bottom-right container with bookmark — matches native cardOverlayButton-br
+        var brContainer = document.createElement('div');
+        brContainer.className = 'cardOverlayButton-br flex';
 
+        var bookmarkBtn = document.createElement('button');
+        bookmarkBtn.className = 'cardOverlayButton cardOverlayButton-hover md-bookmark-btn';
+        bookmarkBtn.setAttribute('title', 'Save recommendation');
+        var bookmarkIcon = document.createElement('span');
+        bookmarkIcon.className = 'material-icons cardOverlayButtonIcon cardOverlayButtonIcon-hover';
+        bookmarkIcon.textContent = 'bookmark_border';
+        bookmarkIcon.setAttribute('aria-hidden', 'true');
+        bookmarkBtn.appendChild(bookmarkIcon);
         bookmarkBtn.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
             handleBookmarkClick(bookmarkBtn, rec);
         });
+        brContainer.appendChild(bookmarkBtn);
+        overlayContainer.appendChild(brContainer);
 
-        cardScalable.appendChild(bookmarkBtn);
-
+        cardScalable.appendChild(overlayContainer);
         cardBox.appendChild(cardScalable);
 
-        // Name text — link to Last.fm (direct child of cardBox, no cardFooter wrapper)
+        // Name text — link to Last.fm
         var nameText = document.createElement('div');
         nameText.className = 'cardText cardTextCentered cardText-first';
         var nameBdi = document.createElement('bdi');
@@ -377,7 +391,7 @@
         nameText.appendChild(nameBdi);
         cardBox.appendChild(nameText);
 
-        // Artist text — link to Last.fm artist page
+        // Artist text
         if (rec.ArtistName && rec.Type !== 'artist') {
             var artistText = document.createElement('div');
             artistText.className = 'cardText cardText-secondary cardTextCentered';
@@ -466,40 +480,14 @@
         });
     }
 
-    function createPlayButton(rec) {
-        var overlay = document.createElement('div');
-        overlay.className = 'md-play-overlay';
-        overlay.dataset.artist = rec.ArtistName || '';
-        overlay.dataset.track = rec.Type === 'track' ? rec.Name : '';
-        overlay.dataset.album = rec.Type === 'album' ? rec.Name : '';
-        overlay.dataset.type = rec.Type;
+    function handlePlayClick(playBtn) {
+        var overlayContainer = playBtn.closest('.cardOverlayContainer');
 
-        var btn = document.createElement('button');
-        btn.className = 'md-play-btn';
-        btn.setAttribute('aria-label', 'Play preview');
-
-        var icon = document.createElement('span');
-        icon.className = 'material-icons';
-        icon.textContent = 'play_arrow';
-
-        btn.appendChild(icon);
-        overlay.appendChild(btn);
-
-        overlay.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            handlePlayClick(overlay);
-        });
-
-        return overlay;
-    }
-
-    function handlePlayClick(overlay) {
-        // If this overlay is already playing, pause it
-        if (_activeOverlay === overlay && _audio && !_audio.paused) {
+        // If this button is already playing, pause it
+        if (_activePlayBtn === playBtn && _audio && !_audio.paused) {
             _audio.pause();
-            overlay.classList.remove('md-playing');
-            overlay.querySelector('.material-icons').textContent = 'play_arrow';
+            if (overlayContainer) overlayContainer.classList.remove('md-playing');
+            playBtn.querySelector('.material-icons').textContent = 'play_arrow';
             return;
         }
 
@@ -507,25 +495,24 @@
         stopPreview();
 
         // Show loading state
-        var icon = overlay.querySelector('.material-icons');
+        var icon = playBtn.querySelector('.material-icons');
         icon.textContent = 'hourglass_empty';
-        overlay.classList.add('md-playing');
+        if (overlayContainer) overlayContainer.classList.add('md-playing');
 
-        var artist = overlay.dataset.artist;
+        var artist = playBtn.dataset.artist;
         var searchTerm;
 
-        if (overlay.dataset.type === 'track') {
-            searchTerm = artist + ' ' + overlay.dataset.track;
+        if (playBtn.dataset.type === 'track') {
+            searchTerm = artist + ' ' + playBtn.dataset.track;
         } else {
-            // Album: search for "artist album" as a song to get a track from it
-            searchTerm = artist + ' ' + overlay.dataset.album;
+            searchTerm = artist + ' ' + playBtn.dataset.album;
         }
 
         fetchPreviewUrl(searchTerm)
             .then(function (previewUrl) {
                 if (!previewUrl) {
                     icon.textContent = 'play_arrow';
-                    overlay.classList.remove('md-playing');
+                    if (overlayContainer) overlayContainer.classList.remove('md-playing');
                     return;
                 }
 
@@ -538,12 +525,12 @@
 
                 _audio.src = previewUrl;
                 _audio.play();
-                _activeOverlay = overlay;
+                _activePlayBtn = playBtn;
                 icon.textContent = 'pause';
             })
             .catch(function () {
                 icon.textContent = 'play_arrow';
-                overlay.classList.remove('md-playing');
+                if (overlayContainer) overlayContainer.classList.remove('md-playing');
             });
     }
 
@@ -567,10 +554,11 @@
             _audio.pause();
             _audio.src = '';
         }
-        if (_activeOverlay) {
-            _activeOverlay.classList.remove('md-playing');
-            _activeOverlay.querySelector('.material-icons').textContent = 'play_arrow';
-            _activeOverlay = null;
+        if (_activePlayBtn) {
+            var container = _activePlayBtn.closest('.cardOverlayContainer');
+            if (container) container.classList.remove('md-playing');
+            _activePlayBtn.querySelector('.material-icons').textContent = 'play_arrow';
+            _activePlayBtn = null;
         }
     }
 
